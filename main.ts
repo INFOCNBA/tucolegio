@@ -1,11 +1,20 @@
 let tick = 100
 // ms
-let Vmax = 127
+let Vmax = 255
 let mismoSentido = false
+radio.onReceivedString(function on_received_string(receivedString: string) {
+    if (receivedString == "izquierda") {
+        mover_motores(Button.A, false)
+        pause(100)
+        reposo()
+    }
+    
+})
 function reposo() {
     // basic.show_icon(IconNames.DIAMOND)
-    robotbit.MotorRun(robotbit.Motors.M1A, 0)
-    robotbit.MotorRun(robotbit.Motors.M2B, 0)
+    // robotbit.motor_run(robotbit.Motors.M1A, 0)
+    // robotbit.motor_run(robotbit.Motors.M2B, 0)
+    robotbit.MotorStopAll()
     mostrarModo()
 }
 
@@ -13,23 +22,21 @@ function mover_motores(boton: number, mismoSentido: boolean) {
     if (boton == Button.A) {
         if (mismoSentido) {
             basic.showArrow(ArrowNames.South)
-            robotbit.MotorRun(robotbit.Motors.M1A, -Vmax)
-            robotbit.MotorRun(robotbit.Motors.M2B, -Vmax)
+            robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, -Vmax)
         } else {
             basic.showArrow(ArrowNames.NorthWest)
-            robotbit.MotorRun(robotbit.Motors.M1A, Vmax)
-            robotbit.MotorRun(robotbit.Motors.M2B, -Vmax)
+            robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
         }
         
     } else if (boton == Button.B) {
         if (mismoSentido) {
             basic.showArrow(ArrowNames.North)
-            robotbit.MotorRun(robotbit.Motors.M1A, Vmax)
-            robotbit.MotorRun(robotbit.Motors.M2B, Vmax)
+            // robotbit.motor_run(robotbit.Motors.M1A, Vmax)
+            // robotbit.motor_run(robotbit.Motors.M2B, Vmax)
+            robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, Vmax)
         } else {
             basic.showArrow(ArrowNames.NorthEast)
-            robotbit.MotorRun(robotbit.Motors.M1A, -Vmax)
-            robotbit.MotorRun(robotbit.Motors.M2B, Vmax)
+            robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
         }
         
     } else {
@@ -45,11 +52,11 @@ function mover_motores(boton: number, mismoSentido: boolean) {
 function mostrarModo() {
     if (mismoSentido) {
         basic.showLeds(`
-            . . # . .
-            . # # # .
+            . . . # .
+            . . # # #
             . . . . .
-            . # # # .
-            . . # . .
+            # # # . .
+            . # . . .
             `)
     } else {
         basic.showLeds(`
@@ -88,6 +95,7 @@ function on_button_pressed_b() {
 // input.on_button_pressed(Button.A, on_button_pressed_a)
 // input.on_button_pressed(Button.B, on_button_pressed_b)
 cambiarModo()
+radio.setGroup(23)
 basic.forever(function on_forever() {
     if (input.buttonIsPressed(Button.A)) {
         mover_motores(Button.A, mismoSentido)
