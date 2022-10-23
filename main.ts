@@ -1,15 +1,76 @@
-let tick = 100
+let tick = 2000
 // ms
 let Vmax = 255
 let mismoSentido = false
-radio.onReceivedString(function on_received_string(receivedString: string) {
-    if (receivedString == "izquierda") {
-        mover_motores(Button.A, false)
-        pause(100)
-        reposo()
+let reposoInhibido = true
+class comandosClase {
+    cola: any[]
+    text_claro: boolean
+    comienza: number
+    comandos_validos: string[]
+    constructor(texto_claro: boolean) {
+        this.cola = []
+        // self.borrar_cola()
+        this.text_claro = texto_claro
+        if (texto_claro) {
+            this.comienza = 0
+        } else {
+            this.comienza = 4
+            this.comandos_validos = ["izquierda", "derecha", "adelante", "atrás", "izIII", "deDDD", "adAAA", "atRRR", "reposo"]
+        }
+        
     }
     
-})
+    // los primeros 4 son para mover_motores(), en "texto claro"
+    // los segunos 4 son el código SECRETO correspondiente a los primeros 4
+    // el último elemento de comandos_validos siemrpe es para reposo
+    public borrar_cola() {
+        this.cola = []
+    }
+    
+    public procesar() {
+        let desentriptado: boolean;
+        let comando: string;
+        if (this.cola.length > 0) {
+            desentriptado = false
+            comando = "" + _py.py_array_pop(this.cola, 0)
+            if (comando == this.comandos_validos[-1]) {
+                // el último elemento de comandos_validos siemrpe es para reposo
+                console.log(",OKre")
+                reposo()
+            } else if (this.comandos_validos.slice(this.comienza).indexOf(comando) >= 0) {
+                if (this.comandos_validos.slice(0, this.comienza).indexOf(comando) >= 0) {
+                    desentriptado = true
+                } else {
+                    // vino en texto claro, nada que hacer
+                    // desencripto
+                    for (let indice = this.comienza; indice < this.comandos_validos.length; indice++) {
+                        if (this.comandos_validos[indice] == comando) {
+                            comando = this.comandos_validos[indice - this.comienza]
+                            desentriptado = true
+                        }
+                        
+                    }
+                }
+                
+                console.log(",OK" + comando.slice(0, 2))
+                mover_motores(comando)
+            } else {
+                console.log(",ER" + comando.slice(0, 2))
+            }
+            
+        } else {
+            console.log(",_")
+        }
+        
+    }
+    
+}
+
+function on_received_string(receivedString: any) {
+    
+}
+
 function reposo() {
     // basic.show_icon(IconNames.DIAMOND)
     // robotbit.motor_run(robotbit.Motors.M1A, 0)
@@ -18,35 +79,14 @@ function reposo() {
     mostrarModo()
 }
 
-function mover_motores(boton: number, mismoSentido: boolean) {
-    if (boton == Button.A) {
-        if (mismoSentido) {
-            basic.showArrow(ArrowNames.South)
-            robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, -Vmax)
-        } else {
-            basic.showArrow(ArrowNames.NorthWest)
-            robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
-        }
-        
-    } else if (boton == Button.B) {
-        if (mismoSentido) {
-            basic.showArrow(ArrowNames.North)
-            // robotbit.motor_run(robotbit.Motors.M1A, Vmax)
-            // robotbit.motor_run(robotbit.Motors.M2B, Vmax)
-            robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, Vmax)
-        } else {
-            basic.showArrow(ArrowNames.NorthEast)
-            robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
-        }
-        
+function mover_motores(comando: string) {
+    if (comando == "izquierda") {
+        basic.showArrow(ArrowNames.NorthWest)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
     } else {
-        console.log("botonAB no implementado")
-        basic.showIcon(IconNames.Angry)
+        console.log(",desconocido(" + comando + ")")
     }
     
-    while (input.buttonIsPressed(boton)) {
-        basic.pause(tick)
-    }
 }
 
 function mostrarModo() {
@@ -76,35 +116,22 @@ function cambiarModo() {
     mostrarModo()
 }
 
-function motor1_atras() {
-    basic.showIcon(IconNames.No)
-    robotbit.MotorRun(robotbit.Motors.M1A, -Vmax)
-    while (input.buttonIsPressed(Button.B)) {
-        basic.pause(tick)
-    }
-}
-
-function on_button_pressed_a() {
+let comandos = new comandosClase(true)
+// adminte comandos en texto claro
+loops.everyInterval(tick, function onEvery_interval() {
     
-}
-
-function on_button_pressed_b() {
-    
-}
-
-// input.on_button_pressed(Button.A, on_button_pressed_a)
-// input.on_button_pressed(Button.B, on_button_pressed_b)
-cambiarModo()
-radio.setGroup(23)
-basic.forever(function on_forever() {
-    if (input.buttonIsPressed(Button.A)) {
-        mover_motores(Button.A, mismoSentido)
+    if (comandos.cola.length == 0 || comandos.cola[-1] == "reposo") {
+        comandos.borrar_cola()
         reposo()
-    } else if (input.buttonIsPressed(Button.B)) {
-        mover_motores(Button.B, mismoSentido)
-        reposo()
-    } else if (input.logoIsPressed()) {
-        cambiarModo()
+    } else {
+        comandos.procesar()
     }
     
 })
+// radio.on_received_string(on_received_string)
+input.onButtonPressed(Button.A, function on_button_pressed_a() {
+    // if input.button_is_pressed(Button.A):
+    
+})
+input.onLogoEvent(TouchButtonEvent.Pressed, cambiarModo)
+cambiarModo()

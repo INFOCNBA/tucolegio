@@ -1,27 +1,53 @@
-tick=100 #ms
+
+tick=2000 #ms
 Vmax=255
 mismoSentido=False
+reposoInhibido=True
 
-def on_forever():
-    if input.button_is_pressed(Button.A):
-        mover_motores(Button.A,mismoSentido)
-        reposo()
-    elif input.button_is_pressed(Button.B):
-        mover_motores(Button.B,mismoSentido)
-        reposo()
-    elif input.logo_is_pressed():
-        cambiarModo()        
+class comandosClase():
+    def __init__(self,texto_claro):
+        self.cola=[] #self.borrar_cola()
+        self.text_claro=texto_claro
+        if texto_claro:
+            self.comienza=0
+        else:
+            self.comienza=4
+            self.comandos_validos=["izquierda","derecha","adelante","atrás", #los primeros 4 son para mover_motores(), en "texto claro"
+                                "izIII", "deDDD", "adAAA", "atRRR",             #los segunos 4 son el código SECRETO correspondiente a los primeros 4
+                                "reposo"] #el último elemento de comandos_validos siemrpe es para reposo
+
+
+
+    def borrar_cola(self):
+        self.cola=[]
+
+    def procesar(self):
+        if len(self.cola) > 0:
+            desentriptado=False
+            comando=str(self.cola.pop(0))
+            if comando == self.comandos_validos[-1]: #el último elemento de comandos_validos siemrpe es para reposo
+                print(",OKre")
+                reposo()
+            elif comando in self.comandos_validos[self.comienza:]:
+                if comando in  self.comandos_validos[:self.comienza]:
+                    desentriptado=True #vino en texto claro, nada que hacer
+                else:
+                    #desencripto
+                    for indice in range(self.comienza,len(self.comandos_validos)):
+                        if self.comandos_validos[indice]==comando:
+                            comando=self.comandos_validos[indice-self.comienza]
+                            desentriptado=True
+                print(",OK"+comando[:2])
+                mover_motores(comando)
+            else:
+                print(",ER"+comando[:2])
+        else:
+            print(",_")
+            
 
 
 def on_received_string(receivedString):
-    if receivedString == "izquierda":
-        mover_motores(Button.A,False)
-        pause(100)
-        reposo()
-
-
-radio.on_received_string(on_received_string)
-
+    pass
 
 def reposo():
     #basic.show_icon(IconNames.DIAMOND)
@@ -31,38 +57,13 @@ def reposo():
     mostrarModo()
     
 
-def mover_motores(boton,mismoSentido):
-    if boton==Button.A:
-        if mismoSentido:
-            basic.show_arrow(ArrowNames.SOUTH)
-            robotbit.motor_run_dual(robotbit.Motors.M1A, -Vmax,
-                                    robotbit.Motors.M2B, -Vmax)
-
-        else:
-            basic.show_arrow(ArrowNames.NORTH_WEST)
-            robotbit.motor_run_dual(robotbit.Motors.M1A, -Vmax,
-                                    robotbit.Motors.M2B, Vmax)
-
-    elif boton==Button.B:
-        if mismoSentido:
-            basic.show_arrow(ArrowNames.NORTH)
-            #robotbit.motor_run(robotbit.Motors.M1A, Vmax)
-            #robotbit.motor_run(robotbit.Motors.M2B, Vmax)
-            robotbit.motor_run_dual(robotbit.Motors.M1A, Vmax,
-                                    robotbit.Motors.M2B, Vmax)
-
-        else:
-            basic.show_arrow(ArrowNames.NORTH_EAST)
-            robotbit.motor_run_dual(robotbit.Motors.M1A, Vmax,
-                                    robotbit.Motors.M2B, -Vmax)
-
-
+def mover_motores(comando:str):
+    if comando=="izquierda":
+        basic.show_arrow(ArrowNames.NORTH_WEST)
+        robotbit.motor_run_dual(robotbit.Motors.M1A, -Vmax,
+                                robotbit.Motors.M2B, Vmax)
     else:
-        print("botonAB no implementado")
-        basic.show_icon(IconNames.ANGRY)
-
-    while input.button_is_pressed(boton):
-        basic.pause(tick)
+        print(",desconocido("+comando+")")
 
 def mostrarModo():
     if mismoSentido:
@@ -89,21 +90,24 @@ def cambiarModo():
     mismoSentido=not(mismoSentido)
     mostrarModo()
 
-
-def motor1_atras():
-    basic.show_icon(IconNames.NO)    
-    robotbit.motor_run(robotbit.Motors.M1A, -Vmax)
-    while input.button_is_pressed(Button.B):
-        basic.pause(tick)
-
 def on_button_pressed_a():
+    #if input.button_is_pressed(Button.A):
     pass
 
-def on_button_pressed_b():
-    pass
+def onEvery_interval():
+    global comandos
+    if len(comandos.cola)==0 or comandos.cola[-1] == "reposo":
+        comandos.borrar_cola()
+        reposo()
+    else:
+        comandos.procesar()
 
-#input.on_button_pressed(Button.A, on_button_pressed_a)
-#input.on_button_pressed(Button.B, on_button_pressed_b)
+
+
+comandos=comandosClase(True) #adminte comandos en texto claro
+loops.every_interval(tick, onEvery_interval)
+#radio.on_received_string(on_received_string)
+input.on_button_pressed(Button.A, on_button_pressed_a)
+input.on_logo_event(TouchButtonEvent.PRESSED, cambiarModo)
 cambiarModo()
-radio.set_group(23)
-basic.forever(on_forever)
+#radio.set_group(23)
