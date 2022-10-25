@@ -1,10 +1,12 @@
 let grupo_radio = 23
-let tick = 1000
+let tick = 500
 // ms
 let Vmax = 255
 let mismoSentido = false
 let reposoInhibido = true
-let recibir_texto_claro = false
+let recibir_texto_claro = true
+let pausa_derecho = 500
+let pausa_giro = 200
 class comandosClase {
     cola: string[]
     ultimo_comando: string
@@ -79,8 +81,10 @@ class comandosClase {
             
             if (desencriptado) {
                 if (this.ultimo_comando == comando) {
-                    console.log(",comandos.procesar()->CmdRepetido:" + comando)
+                    
                 } else {
+                    // if comando not in ["izquierda","derecha"]: #los giros deben repetirse
+                    //     print(",comandos.procesar()->CmdRepetido:"+comando)
                     // self.ultimo_comando == comando #mismo error que en Máquina de Voto Electrónico
                     this.ultimo_comando = comando
                     console.log(",comandos.procesar()->CmdNuevo:" + comando)
@@ -118,16 +122,24 @@ function reposo() {
 function mover_motores(comando: string) {
     if (comando == "izquierda") {
         basic.showArrow(ArrowNames.NorthWest)
-        robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, Vmax)
+        pause(pausa_giro)
+        robotbit.MotorStopAll()
     } else if (comando == "derecha") {
         basic.showArrow(ArrowNames.NorthEast)
-        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, -Vmax)
+        pause(pausa_giro)
+        robotbit.MotorStopAll()
     } else if (comando == "adelante") {
         basic.showArrow(ArrowNames.North)
-        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, Vmax)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
+        pause(pausa_derecho)
+        robotbit.MotorStopAll()
     } else if (comando == "atrás") {
         basic.showArrow(ArrowNames.South)
-        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
+        pause(pausa_derecho)
+        robotbit.MotorStopAll()
     } else {
         console.log(",mover_motores():ErrorNoExisteComando:" + comando)
     }
@@ -169,9 +181,27 @@ function on_button_pressed_b_pruebas() {
     
 }
 
+function interfaz_de_usuario_texto_claro() {
+    
+    
+    recibir_texto_claro = !recibir_texto_claro
+    comandos.texto_claro = recibir_texto_claro
+    if (recibir_texto_claro) {
+        basic.showIcon(IconNames.Yes)
+    } else {
+        basic.showIcon(IconNames.No)
+    }
+    
+}
+
 let comandos = new comandosClase(recibir_texto_claro)
 loops.everyInterval(tick, function onEvery_interval() {
     
+    if (pins.digitalReadPin(DigitalPin.P0)) {
+        interfaz_de_usuario_texto_claro()
+    }
+    
+    // aceptar texto_claro o no (encriptado siempre acepta)
     if (comandos.cola.length > 0) {
         if (comandos.cola.indexOf("reposo") >= 0) {
             reposo()
@@ -179,6 +209,8 @@ loops.everyInterval(tick, function onEvery_interval() {
             comandos.procesar()
         }
         
+    } else if (comandos.ultimo_comando != "reposo") {
+        reposo()
     }
     
 })
@@ -186,7 +218,7 @@ radio.onReceivedString(function on_received_string(comando: string) {
     console.log("on_received_string()->" + comando)
     comandos.cola.push(comando)
 })
-input.onButtonPressed(Button.A, function on_button_pressed_a() {
+input.onButtonPressed(Button.A, function interfaz_de_usuario_a() {
     let indice: number;
     // atrás o izquierda
     if (mismoSentido) {
@@ -208,7 +240,7 @@ input.onButtonPressed(Button.A, function on_button_pressed_a() {
     enviar_por_radio(comando)
     
 })
-input.onButtonPressed(Button.B, function on_button_pressed_b() {
+input.onButtonPressed(Button.B, function interfaz_de_usuario_b() {
     let indice: number;
     // adelant o derecha
     if (mismoSentido) {
@@ -230,26 +262,13 @@ input.onButtonPressed(Button.B, function on_button_pressed_b() {
     enviar_por_radio(comando)
     
 })
-input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
-    
-    
-    recibir_texto_claro = !recibir_texto_claro
-    comandos.texto_claro = recibir_texto_claro
-    if (recibir_texto_claro) {
-        basic.showIcon(IconNames.Yes)
-    } else {
-        basic.showIcon(IconNames.No)
-    }
-    
-})
-// aceptar texto_claro o no
-input.onLogoEvent(TouchButtonEvent.Pressed, cambiarModo)
-// reposo
-input.onGesture(Gesture.Shake, function on_gesture_shake() {
+input.onButtonPressed(Button.AB, function interfaz_de_usuario_reposo() {
     // comandos.cola.push("reposo")
     // onEvery_interval()
     reposo()
     enviar_por_radio("reposo")
 })
+input.onLogoEvent(TouchButtonEvent.Pressed, cambiarModo)
+// reposo
 cambiarModo()
 radio.setGroup(grupo_radio)
