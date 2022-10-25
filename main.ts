@@ -1,74 +1,106 @@
-let tick = 2000
+let grupo_radio = 23
+let tick = 1000
 // ms
 let Vmax = 255
 let mismoSentido = false
 let reposoInhibido = true
+let recibir_texto_claro = false
 class comandosClase {
-    cola: any[]
-    text_claro: boolean
-    comienza: number
+    cola: string[]
+    ultimo_comando: string
+    texto_claro: boolean
     comandos_validos: string[]
+    comienza: number
     constructor(texto_claro: boolean) {
         this.cola = []
         // self.borrar_cola()
-        this.text_claro = texto_claro
-        if (texto_claro) {
-            this.comienza = 0
-        } else {
-            this.comienza = 4
-            this.comandos_validos = ["izquierda", "derecha", "adelante", "atrás", "izIII", "deDDD", "adAAA", "atRRR", "reposo"]
-        }
-        
+        this.ultimo_comando = ""
+        this.texto_claro = texto_claro
+        this.comandos_validos = ["izquierda", "derecha", "adelante", "atrás"]
+        // los primeros 4 son para mover_motores(), en "texto claro"
+        this.comienza = this.comandos_validos.length
+        // comentar
+        this.comandos_validos = this.comandos_validos.concat(["zqr", "drc", "dln", "trs"])
+        // los segunos 4 son el código SECRETO correspondiente a los primeros 4
+        this.ultimo_comando = "reposo"
+        // ojo, esto es ultimo_comando "recibido"
+        this.comandos_validos.push("" + this.ultimo_comando)
     }
     
-    // los primeros 4 son para mover_motores(), en "texto claro"
-    // los segunos 4 son el código SECRETO correspondiente a los primeros 4
     // el último elemento de comandos_validos siemrpe es para reposo
+    public desencriptar(comando: string): string {
+        let desencriptado = false
+        //  for indice in range(self.comienza,len(self.comandos_validos)):
+        //                          if self.comandos_validos[indice]==comando:
+        //                              comando=self.comandos_validos[indice-self.comienza]
+        //                              desencriptado=True
+        for (let indice = this.comienza; indice < this.comandos_validos.length; indice++) {
+            // el ultimo es reposo y NO va encriptado
+            // if indice >= self.comienza and self.comandos_validos[indice]==comando:
+            if (this.comandos_validos[indice] == comando) {
+                comando = this.comandos_validos[indice - this.comienza]
+                desencriptado = true
+            }
+            
+        }
+        return comando
+    }
+    
+    // no puedo dvolver tupla... microsoft del orto!!
     public borrar_cola() {
         this.cola = []
     }
     
     public procesar() {
-        let desentriptado: boolean;
+        let desencriptado: boolean;
         let comando: string;
+        let comando_en_claro: any;
         if (this.cola.length > 0) {
-            desentriptado = false
-            comando = "" + _py.py_array_pop(this.cola, 0)
-            if (comando == this.comandos_validos[-1]) {
-                // el último elemento de comandos_validos siemrpe es para reposo
-                console.log(",OKre")
-                reposo()
-            } else if (this.comandos_validos.slice(this.comienza).indexOf(comando) >= 0) {
+            desencriptado = false
+            // inhibir botones - no hace falta
+            comando = this.cola[0]
+            this.cola = this.cola.slice(1)
+            // activar botones - no hace falta
+            comando_en_claro = this.comandos_validos.slice(0, this.comienza).indexOf(comando) >= 0
+            if (comando_en_claro && this.texto_claro) {
+                desencriptado = true
+            } else if (this.comandos_validos.slice(this.comienza, -1).indexOf(comando) >= 0) {
+                // desencripto
+                comando = this.desencriptar(comando)
                 if (this.comandos_validos.slice(0, this.comienza).indexOf(comando) >= 0) {
-                    desentriptado = true
+                    desencriptado = true
                 } else {
-                    // vino en texto claro, nada que hacer
-                    // desencripto
-                    for (let indice = this.comienza; indice < this.comandos_validos.length; indice++) {
-                        if (this.comandos_validos[indice] == comando) {
-                            comando = this.comandos_validos[indice - this.comienza]
-                            desentriptado = true
-                        }
-                        
-                    }
+                    desencriptado = false
                 }
                 
-                console.log(",OK" + comando.slice(0, 2))
-                mover_motores(comando)
             } else {
-                console.log(",ER" + comando.slice(0, 2))
+                console.log(",comandos.procesar()->ErrorNoExisteComando:" + comando)
+            }
+            
+            if (desencriptado) {
+                if (this.ultimo_comando == comando) {
+                    console.log(",comandos.procesar()->CmdRepetido:" + comando)
+                } else {
+                    // self.ultimo_comando == comando #mismo error que en Máquina de Voto Electrónico
+                    this.ultimo_comando = comando
+                    console.log(",comandos.procesar()->CmdNuevo:" + comando)
+                    mover_motores(comando)
+                }
+                
+            } else {
+                console.log(",comandos.procesar()->ErrorDesencriptar:" + comando)
             }
             
         } else {
-            console.log(",_")
+            console.log(",comandos.procesar()->ErrorColaVacia")
         }
         
     }
     
 }
 
-function on_received_string(receivedString: any) {
-    
+function enviar_por_radio(comando: string) {
+    radio.sendString(comando)
 }
 
 function reposo() {
@@ -76,6 +108,10 @@ function reposo() {
     // robotbit.motor_run(robotbit.Motors.M1A, 0)
     // robotbit.motor_run(robotbit.Motors.M2B, 0)
     robotbit.MotorStopAll()
+    comandos.borrar_cola()
+    let comando = "reposo"
+    console.log("," + comando)
+    comandos.ultimo_comando = comando
     mostrarModo()
 }
 
@@ -83,8 +119,17 @@ function mover_motores(comando: string) {
     if (comando == "izquierda") {
         basic.showArrow(ArrowNames.NorthWest)
         robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
+    } else if (comando == "derecha") {
+        basic.showArrow(ArrowNames.NorthEast)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
+    } else if (comando == "adelante") {
+        basic.showArrow(ArrowNames.North)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, Vmax)
+    } else if (comando == "atrás") {
+        basic.showArrow(ArrowNames.South)
+        robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
     } else {
-        console.log(",desconocido(" + comando + ")")
+        console.log(",mover_motores():ErrorNoExisteComando:" + comando)
     }
     
 }
@@ -116,22 +161,95 @@ function cambiarModo() {
     mostrarModo()
 }
 
-let comandos = new comandosClase(true)
-// adminte comandos en texto claro
+function on_button_pressed_b_pruebas() {
+    let comando = comandos.comandos_validos[0]
+    // es "izquierda" en claro
+    console.log(",botonB()->" + comando)
+    comandos.cola.push(comando)
+    
+}
+
+let comandos = new comandosClase(recibir_texto_claro)
 loops.everyInterval(tick, function onEvery_interval() {
     
-    if (comandos.cola.length == 0 || comandos.cola[-1] == "reposo") {
-        comandos.borrar_cola()
-        reposo()
-    } else {
-        comandos.procesar()
+    if (comandos.cola.length > 0) {
+        if (comandos.cola.indexOf("reposo") >= 0) {
+            reposo()
+        } else {
+            comandos.procesar()
+        }
+        
     }
     
 })
-// radio.on_received_string(on_received_string)
+radio.onReceivedString(function on_received_string(comando: string) {
+    console.log("on_received_string()->" + comando)
+    comandos.cola.push(comando)
+})
 input.onButtonPressed(Button.A, function on_button_pressed_a() {
-    // if input.button_is_pressed(Button.A):
+    let indice: number;
+    // atrás o izquierda
+    if (mismoSentido) {
+        // atrás
+        indice = 3
+    } else {
+        // izquierda 
+        indice = 0
+    }
+    
+    if (!comandos.texto_claro) {
+        indice += comandos.comienza
+    }
+    
+    // version encriptada        
+    let comando = comandos.comandos_validos[indice]
+    console.log(",botonA()->" + comando)
+    comandos.cola.push(comando)
+    enviar_por_radio(comando)
     
 })
+input.onButtonPressed(Button.B, function on_button_pressed_b() {
+    let indice: number;
+    // adelant o derecha
+    if (mismoSentido) {
+        // adelante
+        indice = 2
+    } else {
+        // derecha
+        indice = 1
+    }
+    
+    if (!comandos.texto_claro) {
+        indice += comandos.comienza
+    }
+    
+    // version encriptada
+    let comando = comandos.comandos_validos[indice]
+    console.log(",botonB()->" + comando)
+    comandos.cola.push(comando)
+    enviar_por_radio(comando)
+    
+})
+input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
+    
+    
+    recibir_texto_claro = !recibir_texto_claro
+    comandos.texto_claro = recibir_texto_claro
+    if (recibir_texto_claro) {
+        basic.showIcon(IconNames.Yes)
+    } else {
+        basic.showIcon(IconNames.No)
+    }
+    
+})
+// aceptar texto_claro o no
 input.onLogoEvent(TouchButtonEvent.Pressed, cambiarModo)
+// reposo
+input.onGesture(Gesture.Shake, function on_gesture_shake() {
+    // comandos.cola.push("reposo")
+    // onEvery_interval()
+    reposo()
+    enviar_por_radio("reposo")
+})
 cambiarModo()
+radio.setGroup(grupo_radio)
