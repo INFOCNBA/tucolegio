@@ -1,8 +1,8 @@
 let grupo_radio = 23
-let tick = 250
+let tick = 125
 // ms
-let pausa_derecho = tick * 2
-let pausa_giro = tick * 1
+let pausa_derecho = tick * 4
+let pausa_giro = tick * 2
 let pausa_actual = 0
 let Vmax = 255
 let mismoSentido = false
@@ -50,6 +50,22 @@ class comandosClase {
     }
     
     // no puedo dvolver tupla... microsoft del orto!!
+    public encriptar(comando: string): string {
+        let letra: string;
+        // resultado=comando
+        let resultado = ""
+        let indice = 0
+        while (resultado.length < 3 && indice < comando.length) {
+            letra = comando[indice]
+            if (["a", "e", "i", "o", "u", "á"].indexOf(letra) < 0) {
+                resultado += letra
+            }
+            
+            indice += 1
+        }
+        return resultado
+    }
+    
     public borrar_cola() {
         this.cola = []
     }
@@ -206,6 +222,8 @@ function interfaz_de_usuario_texto_claro() {
     
 }
 
+// elif comandos.ultimo_comando != "reposo":
+//     reposo()
 let comandos = new comandosClase(recibir_texto_claro)
 loops.everyInterval(tick, function onEvery_interval() {
     
@@ -214,11 +232,9 @@ loops.everyInterval(tick, function onEvery_interval() {
     }
     
     // aceptar texto_claro o no (encriptado siempre acepta)
-    if (pausa_actual <= tick && comandos.ultimo_comando != "reposo") {
+    pausa_actual = Math.max(pausa_actual - tick, 0)
+    if (pausa_actual < tick && comandos.ultimo_comando != "reposo") {
         reposo()
-    } else {
-        pausa_actual -= tick
-        pausa_actual = Math.max(pausa_actual, 0)
     }
     
     if (comandos.cola.length > 0) {
@@ -228,8 +244,6 @@ loops.everyInterval(tick, function onEvery_interval() {
             comandos.procesar()
         }
         
-    } else if (comandos.ultimo_comando != "reposo") {
-        reposo()
     }
     
 })
@@ -248,12 +262,14 @@ input.onButtonPressed(Button.A, function interfaz_de_usuario_a() {
         indice = 0
     }
     
+    let comando = comandos.comandos_validos[indice]
     if (!comandos.texto_claro) {
-        indice += comandos.comienza
+        // TODO: pasar a enviar_por_radio()
+        // indice+=comandos.comienza #version encriptada
+        // comando=comandos.comandos_validos[indice]
+        comando = comandos.encriptar(comando)
     }
     
-    // version encriptada        
-    let comando = comandos.comandos_validos[indice]
     console.log(",botonA()->" + comando)
     comandos.cola.push(comando)
     enviar_por_radio(comando)
@@ -270,12 +286,14 @@ input.onButtonPressed(Button.B, function interfaz_de_usuario_b() {
         indice = 1
     }
     
+    let comando = comandos.comandos_validos[indice]
     if (!comandos.texto_claro) {
-        indice += comandos.comienza
+        // TODO: pasar a enviar_por_radio()
+        // indice+=comandos.comienza #version encriptada
+        // comando=comandos.comandos_validos[indice]
+        comando = comandos.encriptar(comando)
     }
     
-    // version encriptada
-    let comando = comandos.comandos_validos[indice]
     console.log(",botonB()->" + comando)
     comandos.cola.push(comando)
     enviar_por_radio(comando)

@@ -1,7 +1,7 @@
 grupo_radio=23
-tick=250 #ms
-pausa_derecho=tick*2
-pausa_giro=tick*1
+tick=125 #ms
+pausa_derecho=tick*4
+pausa_giro=tick*2
 pausa_actual=0
 Vmax=255
 mismoSentido=False
@@ -32,6 +32,17 @@ class comandosClase():
                 comando=self.comandos_validos[indice-self.comienza]
                 desencriptado=True
         return comando #no puedo dvolver tupla... microsoft del orto!!
+
+    def encriptar(self,comando:str):
+        #resultado=comando
+        resultado=""
+        indice=0
+        while len(resultado)<3 and indice<len(comando):
+            letra=comando[indice]
+            if letra not in ["a","e","i","o","u","á"]:
+                resultado+=letra
+            indice+=1
+        return resultado
 
     def borrar_cola(self):
         self.cola=[]
@@ -160,9 +171,12 @@ def interfaz_de_usuario_a():  #atrás o izquierda
         indice=3 
     else: #izquierda 
         indice=0
-    if not comandos.texto_claro:
-        indice+=comandos.comienza #version encriptada        
     comando=comandos.comandos_validos[indice]
+    if not comandos.texto_claro:
+            #TODO: pasar a enviar_por_radio()
+            #indice+=comandos.comienza #version encriptada
+            #comando=comandos.comandos_validos[indice]
+            comando=comandos.encriptar(comando)
     print(",botonA()->"+comando)
     comandos.cola.append(comando)
     enviar_por_radio(comando) 
@@ -174,9 +188,12 @@ def interfaz_de_usuario_b():  #adelant o derecha
         indice=2
     else: #derecha
         indice=1
-    if not comandos.texto_claro:
-        indice+=comandos.comienza #version encriptada
     comando=comandos.comandos_validos[indice]
+    if not comandos.texto_claro:
+        #TODO: pasar a enviar_por_radio()
+        #indice+=comandos.comienza #version encriptada
+        #comando=comandos.comandos_validos[indice]
+        comando=comandos.encriptar(comando)
     print(",botonB()->"+comando)
     comandos.cola.append(comando)
     enviar_por_radio(comando)
@@ -206,20 +223,18 @@ def onEvery_interval():
     global comandos,tick,pausa_actual
     if pins.digital_read_pin(DigitalPin.P0):
         interfaz_de_usuario_texto_claro() #aceptar texto_claro o no (encriptado siempre acepta)
-    
-    if pausa_actual<=tick and comandos.ultimo_comando != "reposo":
+
+    pausa_actual=max(pausa_actual-tick,0)
+    if pausa_actual<tick and comandos.ultimo_comando != "reposo":
         reposo()
-    else:
-        pausa_actual-=tick
-        pausa_actual=max(pausa_actual,0)
 
     if len(comandos.cola)>0:
         if "reposo" in comandos.cola:
             reposo()
         else:
             comandos.procesar()
-    elif comandos.ultimo_comando != "reposo":
-        reposo()
+#elif comandos.ultimo_comando != "reposo":
+#    reposo()
 
 def interfaz_de_usuario_reposo():
     #comandos.cola.push("reposo")
