@@ -1,12 +1,13 @@
 let grupo_radio = 23
-let tick = 500
+let tick = 250
 // ms
+let pausa_derecho = tick * 2
+let pausa_giro = tick * 1
+let pausa_actual = 0
 let Vmax = 255
 let mismoSentido = false
 let reposoInhibido = true
 let recibir_texto_claro = true
-let pausa_derecho = 500
-let pausa_giro = 200
 class comandosClase {
     cola: string[]
     ultimo_comando: string
@@ -55,12 +56,20 @@ class comandosClase {
     
     public procesar() {
         let desencriptado: boolean;
+        let modo_ráfaga: boolean;
         let comando: string;
         let comando_en_claro: any;
         if (this.cola.length > 0) {
             desencriptado = false
+            modo_ráfaga = false
             // inhibir botones - no hace falta
             comando = this.cola[0]
+            if (this.cola.length > 1 && comando == this.cola[1]) {
+                modo_ráfaga = true
+            } else {
+                modo_ráfaga = false
+            }
+            
             this.cola = this.cola.slice(1)
             // activar botones - no hace falta
             comando_en_claro = this.comandos_validos.slice(0, this.comienza).indexOf(comando) >= 0
@@ -80,7 +89,7 @@ class comandosClase {
             }
             
             if (desencriptado) {
-                if (this.ultimo_comando == comando) {
+                if (modo_ráfaga) {
                     
                 } else {
                     // if comando not in ["izquierda","derecha"]: #los giros deben repetirse
@@ -88,9 +97,9 @@ class comandosClase {
                     // self.ultimo_comando == comando #mismo error que en Máquina de Voto Electrónico
                     this.ultimo_comando = comando
                     console.log(",comandos.procesar()->CmdNuevo:" + comando)
-                    mover_motores(comando)
                 }
                 
+                mover_motores(comando, modo_ráfaga)
             } else {
                 console.log(",comandos.procesar()->ErrorDesencriptar:" + comando)
             }
@@ -108,6 +117,7 @@ function enviar_por_radio(comando: string) {
 }
 
 function reposo() {
+    
     // basic.show_icon(IconNames.DIAMOND)
     // robotbit.motor_run(robotbit.Motors.M1A, 0)
     // robotbit.motor_run(robotbit.Motors.M2B, 0)
@@ -116,34 +126,36 @@ function reposo() {
     let comando = "reposo"
     console.log("," + comando)
     comandos.ultimo_comando = comando
+    pausa_actual = 0
     mostrarModo()
 }
 
-function mover_motores(comando: string) {
+function mover_motores(comando: string, modo_ráfaga: boolean) {
+    
+    let comando_válido = true
+    let pausa = 0
     if (comando == "izquierda") {
         basic.showArrow(ArrowNames.NorthWest)
         robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, Vmax)
-        pause(pausa_giro)
-        robotbit.MotorStopAll()
+        pausa = pausa_giro
     } else if (comando == "derecha") {
         basic.showArrow(ArrowNames.NorthEast)
         robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, -Vmax)
-        pause(pausa_giro)
-        robotbit.MotorStopAll()
+        pausa = pausa_giro
     } else if (comando == "adelante") {
         basic.showArrow(ArrowNames.North)
         robotbit.MotorRunDual(robotbit.Motors.M1A, Vmax, robotbit.Motors.M2B, -Vmax)
-        pause(pausa_derecho)
-        robotbit.MotorStopAll()
+        pausa = pausa_derecho
     } else if (comando == "atrás") {
         basic.showArrow(ArrowNames.South)
         robotbit.MotorRunDual(robotbit.Motors.M1A, -Vmax, robotbit.Motors.M2B, Vmax)
-        pause(pausa_derecho)
-        robotbit.MotorStopAll()
+        pausa = pausa_derecho
     } else {
         console.log(",mover_motores():ErrorNoExisteComando:" + comando)
+        comando_válido = false
     }
     
+    pausa_actual = +pausa
 }
 
 function mostrarModo() {
@@ -202,6 +214,13 @@ loops.everyInterval(tick, function onEvery_interval() {
     }
     
     // aceptar texto_claro o no (encriptado siempre acepta)
+    if (pausa_actual <= tick && comandos.ultimo_comando != "reposo") {
+        reposo()
+    } else {
+        pausa_actual -= tick
+        pausa_actual = Math.max(pausa_actual, 0)
+    }
+    
     if (comandos.cola.length > 0) {
         if (comandos.cola.indexOf("reposo") >= 0) {
             reposo()

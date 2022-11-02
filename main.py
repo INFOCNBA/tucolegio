@@ -1,11 +1,12 @@
 grupo_radio=23
-tick=500 #ms
+tick=250 #ms
+pausa_derecho=tick*2
+pausa_giro=tick*1
+pausa_actual=0
 Vmax=255
 mismoSentido=False
 reposoInhibido=True
 recibir_texto_claro=True
-pausa_derecho=500
-pausa_giro=200        
 
 class comandosClase():
     def __init__(self,texto_claro):
@@ -38,8 +39,13 @@ class comandosClase():
     def procesar(self):
         if len(self.cola) > 0:
             desencriptado=False
+            modo_ráfaga=False
             #inhibir botones - no hace falta
             comando=self.cola[0]
+            if len(self.cola) > 1 and comando==self.cola[1]:
+                modo_ráfaga=True
+            else:
+                modo_ráfaga=False
             self.cola=self.cola[1:]
             #activar botones - no hace falta
             comando_en_claro=comando in self.comandos_validos[:self.comienza]
@@ -53,9 +59,9 @@ class comandosClase():
                 else:
                     desencriptado=False
             else:
-                                            print(",comandos.procesar()->ErrorNoExisteComando:"+comando)
+                print(",comandos.procesar()->ErrorNoExisteComando:"+comando)
             if desencriptado:
-                if self.ultimo_comando == comando:
+                if modo_ráfaga:
                     pass
                     #if comando not in ["izquierda","derecha"]: #los giros deben repetirse
                     #    print(",comandos.procesar()->CmdRepetido:"+comando)
@@ -63,7 +69,7 @@ class comandosClase():
                     #self.ultimo_comando == comando #mismo error que en Máquina de Voto Electrónico
                     self.ultimo_comando = comando
                     print(",comandos.procesar()->CmdNuevo:"+comando)
-                    mover_motores(comando)
+                mover_motores(comando,modo_ráfaga)
             else:
                 print(",comandos.procesar()->ErrorDesencriptar:"+comando)    
         else:
@@ -81,6 +87,7 @@ def enviar_por_radio(comando):
 
 
 def reposo():
+    global pausa_actual
     #basic.show_icon(IconNames.DIAMOND)
     #robotbit.motor_run(robotbit.Motors.M1A, 0)
     #robotbit.motor_run(robotbit.Motors.M2B, 0)
@@ -89,36 +96,38 @@ def reposo():
     comando="reposo"
     print(","+comando)
     comandos.ultimo_comando=comando
+    pausa_actual=0
     mostrarModo()
     
 
-def mover_motores(comando:str):
+def mover_motores(comando:str, modo_ráfaga:bool):
+    global pausa_actual
+    comando_válido=True
+    pausa=0
     if comando=="izquierda":
         basic.show_arrow(ArrowNames.NORTH_WEST)
         robotbit.motor_run_dual(robotbit.Motors.M1A, Vmax,
                                 robotbit.Motors.M2B, Vmax)
-        pause(pausa_giro)
-        robotbit.motor_stop_all()
+        pausa=pausa_giro
     elif comando=="derecha":
         basic.show_arrow(ArrowNames.NORTH_EAST)
         robotbit.motor_run_dual(robotbit.Motors.M1A, -Vmax,
                                     robotbit.Motors.M2B, -Vmax)
-        pause(pausa_giro)
-        robotbit.motor_stop_all()
+        pausa=pausa_giro
     elif comando=="adelante":
         basic.show_arrow(ArrowNames.NORTH)
         robotbit.motor_run_dual(robotbit.Motors.M1A, Vmax,
                                         robotbit.Motors.M2B, -Vmax)
-        pause(pausa_derecho)
-        robotbit.motor_stop_all()
+        pausa=pausa_derecho
     elif comando=="atrás":
         basic.show_arrow(ArrowNames.SOUTH)
         robotbit.motor_run_dual(robotbit.Motors.M1A, -Vmax,
                                         robotbit.Motors.M2B, Vmax)
-        pause(pausa_derecho)
-        robotbit.motor_stop_all()                                       
+        pausa=pausa_derecho
     else:
         print(",mover_motores():ErrorNoExisteComando:"+comando)
+        comando_válido=False
+    pausa_actual=+pausa
 
 def mostrarModo():
     if mismoSentido:
@@ -194,9 +203,15 @@ def interfaz_de_usuario_texto_claro():
 
 
 def onEvery_interval():
-    global comandos
+    global comandos,tick,pausa_actual
     if pins.digital_read_pin(DigitalPin.P0):
         interfaz_de_usuario_texto_claro() #aceptar texto_claro o no (encriptado siempre acepta)
+    
+    if pausa_actual<=tick and comandos.ultimo_comando != "reposo":
+        reposo()
+    else:
+        pausa_actual-=tick
+        pausa_actual=max(pausa_actual,0)
 
     if len(comandos.cola)>0:
         if "reposo" in comandos.cola:
