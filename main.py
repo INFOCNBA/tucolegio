@@ -1,4 +1,4 @@
-grupo_radio=23
+grupo_radio=15
 tick=125 #ms
 pausa_derecho=tick*4
 pausa_giro=tick*2

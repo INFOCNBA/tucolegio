@@ -1,4 +1,4 @@
-let grupo_radio = 23
+let grupo_radio = 15
 let tick = 125
 // ms
 let pausa_derecho = tick * 4
